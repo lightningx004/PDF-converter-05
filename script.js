@@ -34,9 +34,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast('Installing reportlab library...', 'info');
             await micropip.install("reportlab");
 
-            showToast('Installing autopep8...', 'info');
-            await micropip.install("autopep8");
-
             showToast('Configuring environment...', 'info');
             // Define clean_code function in Python environment
             await pyodide.runPythonAsync(`
@@ -224,11 +221,6 @@ FPDF.normalize_text = patched_normalize_text
 
 # --- MONKEY PATCH END ---
 
-# --- CODE CLEANING ---
-def clean_code(code, font_size):
-    return code.replace('\\t', '    ')
-
-
 cleaned = clean_code(user_code, font_size)
 
 try:
@@ -245,62 +237,12 @@ try:
         try:
             exec(cleaned, globals())
         except SyntaxError:
-            # HEURISTIC: Comprehensive Auto-Fix
-            def fix_syntax(code):
-                import re
-                fixed = code
-                
-                # --- 0. QUESTIONS_DATA Specific Fix ---
-                # Inject "[{" BEFORE the newline to avoid IndentationError
-                fixed = re.sub(r'(QUESTIONS_DATA\\s*=\\s*)(?=\\n)', r'\\1[{', fixed)
-                
-                # 1. Triple Quotes: "text"", -> "text""",
-                fixed = re.sub(r'([^\"])\"\"(\s*[),])', r'\\1"""\\2', fixed)
-                
-                # 2. Incomplete Assignments: x =, -> x = [],
-                fixed = re.sub(r'(\\s*[\\w_][\\w\\d_]*\\s*=\\s*)(?=,)', r'\\1[]', fixed)
-                
-                # 3. Incomplete Dict Values: key:, -> key: [],
-                fixed = re.sub(r'(:\\s*)(?=,)', r'\\1[]', fixed)
-                fixed = re.sub(r'(:\\s*)(?=\\})', r'\\1[] ', fixed)
-                
-                # 4. Top-level Incomplete Assignment: x = \n -> pass # x =
-                # We replace with 'pass' so autopep8 can fix the indentation.
-                fixed = re.sub(r'^(\\s*)([\\w_][\\w\\d_]*\\s*=\\s*)(?=$|#|\\n)', r'\\1pass # \\2', fixed, flags=re.MULTILINE)
-                
-                # 5. Newline in String (Smart Fix)
-                lines = fixed.split('\n')
-                fixed_lines = []
-                for line in lines:
-                    # Ignore comments for quote counting
-                    content = line.split('#')[0]
-                    dq_count = content.count('"') - content.count(r'\"')
-                    
-                    if dq_count % 2 == 1:
-                        # Odd quotes -> Potential unclosed string
-                        last_quote = line.rfind('"')
-                        trailing = line[last_quote+1:].strip()
-                        # If not followed by closing chars, it's likely unclosed -> escape newline
-                        if not re.match(r'^[\),\]\}\s]*$', trailing):
-                             line += " \\"
-                    fixed_lines.append(line)
-                
-                return '\n'.join(fixed_lines)
-
-            print("SyntaxError detected. Attempting Auto-Fix...")
-            fixed = fix_syntax(cleaned)
-            
+            # HEURISTIC: Fix missing triple quote (User typo: "text"", -> "text""",)
+            import re
+            fixed = re.sub(r'([^"])""(\s*[),])', r'\\1"""\\2', cleaned)
             if fixed == cleaned:
                 raise
-            
-            # --- Indentation Fix ---
-            try:
-                import autopep8
-                # aggressive=2 handles more complex indentation and fixes
-                fixed = autopep8.fix_code(fixed, options={'aggressive': 2})
-            except:
-                pass
-
+            print("Warning: Detected potential missing quote. Attempting auto-fix...")
             exec(fixed, globals())
             
     finally:

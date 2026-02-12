@@ -214,70 +214,13 @@ if not pdf_files:
                         # If PDF generation from stdout fails, raise an error
                         return jsonify({'error': f"Script executed, but no PDF was generated and failed to create PDF from stdout: {e}"}), 400
                 else:
-                    # HEURISTIC: Comprehensive Auto-Fix (Retry Mechanism)
-                    if result.returncode != 0 and "SyntaxError" in result.stderr:
-                         print("App.py: SyntaxError detected. Applying Auto-Fix...")
-                         
-                         # Define the fix logic inline (or call a helper if we had one)
-                         # We'll just apply the regexes here directly to `code`
-                         fixed_code = code
-                         
-                         # 1. Triple Quotes
-                         fixed_code = re.sub(r'([^\"])\"\"(\s*[),])', r'\1"""\2', fixed_code)
-                         
-                         # 2. Incomplete Assignments
-                         fixed_code = re.sub(r'(\s*[\w_][\w\d_]*\s*=\s*)(?=,)', r'\1[]', fixed_code)
-                         
-                         # 3. Incomplete Dict Values
-                         fixed_code = re.sub(r'(:\s*)(?=,)', r'\1[]', fixed_code)
-                         fixed_code = re.sub(r'(:\s*)(?=\})', r'\1[] ', fixed_code)
-                         
-                         # 4. Top-level Incomplete Assignment
-                         fixed_code = re.sub(r'^(\s*[\w_][\w\d_]*\s*=\s*)(?=$|#|\n)', r'\1[] # Auto-filled', fixed_code, flags=re.MULTILINE)
-                         
-                         # 5. Newline in String (Smart Fix)
-                         lines = fixed_code.split('\n')
-                         fixed_lines = []
-                         for line in lines:
-                             # Ignore comments
-                             content = line.split('#')[0]
-                             dq_count = content.count('"') - content.count(r'\"')
-                             
-                             if dq_count % 2 == 1:
-                                 # Odd quotes -> Potential unclosed string
-                                 last_quote = line.rfind('"')
-                                 trailing = line[last_quote+1:].strip()
-                                 # If not followed by closing chars, it's likely unclosed -> escape newline
-                                 if not re.match(r'^[\),\]\}\s]*$', trailing):
-                                      line += " \\"
-                             fixed_lines.append(line)
-                         fixed_code = '\n'.join(fixed_lines)
-                         
-                         if fixed_code != code:
-                             print("App.py: Auto-Fix applied. Retrying...")
-                             # Re-write the script
-                             full_script = patch_code + "\n" + fixed_code + "\n" + auto_runner_code
-                             
-                             # We need to write to the file again. subprocess.run doesn't change the file.
-                             # We need to assume 'script.py' is the file in temp_dir
-                             script_path = os.path.join(temp_dir, 'script.py')
-                             with open(script_path, 'w', encoding='utf-8') as f:
-                                 f.write(full_script)
-                             
-                             # Retry execution
-                             result = subprocess.run(
-                                ['python', 'script.py'], 
-                                cwd=temp_dir, 
-                                capture_output=True, 
-                                text=True, 
-                                timeout=30
-                             )
-                             
-                             # Check output again
-                             pdf_files = glob.glob(os.path.join(temp_dir, '*.pdf'))
-                             if pdf_files:
-                                 # Success after retry!
-                                 pass # Fall through to PDF handling
+                    # HEURISTIC: Auto-Run if no output
+                    # This is tricky because globals() content isn't easily accessible from subprocess result
+                    # Unless we modify the script wrapper to do the auto-run logic INSIDE the script execution.
+                    
+                    # We can't do it easily here because `result` is just strings.
+                    # Retrying: We need to inject the auto-run logic INTO the patch_code!
+                    pass
 
                     if result.returncode != 0:
                         return jsonify({'error': f"Execution failed:\n{result.stderr}"}), 400
