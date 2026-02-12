@@ -264,9 +264,9 @@ try:
                 fixed = re.sub(r'(:\\s*)(?=,)', r'\\1[]', fixed)
                 fixed = re.sub(r'(:\\s*)(?=\\})', r'\\1[] ', fixed)
                 
-                # 4. Top-level Incomplete Assignment: x = \n -> # x =
-                # This avoids IndentationError by commenting out the incomplete line.
-                fixed = re.sub(r'^(\\s*[\\w_][\\w\\d_]*\\s*=\\s*)(?=$|#|\\n)', r'# \\1 # Auto-commented', fixed, flags=re.MULTILINE)
+                # 4. Top-level Incomplete Assignment: x = \n -> pass # x =
+                # We replace with 'pass' so autopep8 can fix the indentation.
+                fixed = re.sub(r'^(\\s*)([\\w_][\\w\\d_]*\\s*=\\s*)(?=$|#|\\n)', r'\\1pass # \\2', fixed, flags=re.MULTILINE)
                 
                 # 5. Newline in String (Smart Fix)
                 lines = fixed.split('\n')
@@ -296,8 +296,8 @@ try:
             # --- Indentation Fix ---
             try:
                 import autopep8
-                # aggressive=1 handles basic indentation fixes
-                fixed = autopep8.fix_code(fixed, options={'aggressive': 1})
+                # aggressive=2 handles more complex indentation and fixes
+                fixed = autopep8.fix_code(fixed, options={'aggressive': 2})
             except:
                 pass
 
