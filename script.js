@@ -264,8 +264,9 @@ try:
                 fixed = re.sub(r'(:\\s*)(?=,)', r'\\1[]', fixed)
                 fixed = re.sub(r'(:\\s*)(?=\\})', r'\\1[] ', fixed)
                 
-                # 4. Top-level Incomplete Assignment: x = \n -> x = []
-                fixed = re.sub(r'^(\\s*[\\w_][\\w\\d_]*\\s*=\\s*)(?=$|#|\\n)', r'\\1[] # Auto-filled', fixed, flags=re.MULTILINE)
+                # 4. Top-level Incomplete Assignment: x = \n -> # x =
+                # This avoids IndentationError by commenting out the incomplete line.
+                fixed = re.sub(r'^(\\s*[\\w_][\\w\\d_]*\\s*=\\s*)(?=$|#|\\n)', r'# \\1 # Auto-commented', fixed, flags=re.MULTILINE)
                 
                 # 5. Newline in String (Smart Fix)
                 lines = fixed.split('\n')
