@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             showToast('Installing fpdf2 library...', 'info');
             await micropip.install("fpdf2");
+            await micropip.install("reportlab");
 
             showToast('Configuring environment...', 'info');
             // Define clean_code function in Python environment
