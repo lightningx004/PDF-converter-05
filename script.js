@@ -221,6 +221,11 @@ FPDF.normalize_text = patched_normalize_text
 
 # --- MONKEY PATCH END ---
 
+# --- CODE CLEANING ---
+def clean_code(code, font_size):
+    return code.replace('\\t', '    ')
+
+
 cleaned = clean_code(user_code, font_size)
 
 try:
@@ -241,6 +246,10 @@ try:
             def fix_syntax(code):
                 import re
                 fixed = code
+                
+                # --- 0. QUESTIONS_DATA Specific Fix ---
+                # Inject "[{" BEFORE the newline to avoid IndentationError
+                fixed = re.sub(r'(QUESTIONS_DATA\\s*=\\s*)(?=\\n)', r'\\1[{', fixed)
                 
                 # 1. Triple Quotes: "text"", -> "text""",
                 fixed = re.sub(r'([^\"])\"\"(\s*[),])', r'\\1"""\\2', fixed)
