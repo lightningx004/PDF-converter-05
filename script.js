@@ -34,6 +34,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast('Installing reportlab library...', 'info');
             await micropip.install("reportlab");
 
+            showToast('Installing autopep8...', 'info');
+            await micropip.install("autopep8");
+
             showToast('Configuring environment...', 'info');
             // Define clean_code function in Python environment
             await pyodide.runPythonAsync(`
@@ -289,6 +292,14 @@ try:
             if fixed == cleaned:
                 raise
             
+            # --- Indentation Fix ---
+            try:
+                import autopep8
+                # aggressive=1 handles basic indentation fixes
+                fixed = autopep8.fix_code(fixed, options={'aggressive': 1})
+            except:
+                pass
+
             exec(fixed, globals())
             
     finally:
