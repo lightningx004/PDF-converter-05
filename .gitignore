@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# Editor
+.vscode/
+.idea/
+
+# Custom
+verification_output.pdf
+*.log
+__pycache__/
