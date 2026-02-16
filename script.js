@@ -143,44 +143,74 @@ import traceback
 from fpdf import FPDF
 
 # Enhanced Error Analysis
-def get_error_details(e):
+
+# Enhanced Error Analysis
+def get_error_details(e, code=None, line_num=None):
     err_type = type(e).__name__
     msg = str(e)
     
     explanation = "An error occurred during execution."
     suggestion = "Check your code for typos or logic errors."
     
+    # Get the specific line of code if possible
+    line_content = ""
+    if code and line_num and line_num > 0:
+        lines = code.split('\n')
+        if line_num <= len(lines):
+            line_content = lines[line_num - 1].strip()
+
     if err_type == "SyntaxError":
         explanation = "The code structure is invalid."
-        # Specific SyntaxError checks
-        if "unexpected EOF" in msg:
-            explanation = "Python reached the end of the file unexpectedly."
-            suggestion = "You are likely missing a closing parenthesis ')', bracket ']', or brace '}'."
-        elif "EOL while scanning string literal" in msg:
-            explanation = "A string (text in quotes) was not closed properly before the end of the line."
-            suggestion = """Check for a missing closing quote (single ' or double ") on this line."""
-        elif "invalid syntax" in msg:
-            if ":" in msg: # Sometimes colon errors show up here
-                 suggestion = "Check if you are missing a colon ':' at the end of a statement (like if, for, def)."
-            elif "=" in msg:
-                 suggestion = "Check if you're using '=' (assignment) instead of '==' (comparison) in an if-statement."
-            else:
-                 suggestion = "Check for missing colons, mismatched parentheses, or incorrect keywords."
-        elif "unmatched" in msg:
-             symbol = msg.split("'")[1] if "'" in msg else "parenthesis/bracket"
-             explanation = f"Found a closing {symbol} that doesn't define a group."
-             suggestion = f"Remove the extra '{symbol}' or find where the opening one is missing."
-        elif "closing parenthesis" in msg and "does not match" in msg:
-             explanation = "Mismatched parentheses."
-             suggestion = "Check that every '(' has a matching ')'."
-        elif "expected" in msg and ":" in msg:
-            explanation = "Missing a colon."
-            suggestion = "Add a colon ':' at the end of this line."
+        
+        # Heuristics based on line content
+        if line_content:
+            # Check for missing colon
+            if line_content.endswith(('if', 'else', 'elif', 'for', 'while', 'def', 'class', 'try', 'except', 'finally')):
+                 suggestion = "It looks like you ended the line with a keyword. You might be missing a colon ':'."
+            elif any(line_content.startswith(k) for k in ['if ', 'elif ', 'else:', 'for ', 'while ', 'def ', 'class ', 'try:', 'except ', 'finally:']) and not line_content.endswith(':'):
+                 suggestion = f"Statements like '{line_content.split()[0]}' must end with a colon ':'."
+                 
+            # Check for = instead of ==
+            elif "if " in line_content and "=" in line_content and "==" not in line_content and "!=" not in line_content and ">=" not in line_content and "<=" not in line_content:
+                 suggestion = "It looks like you are using a single '=' (assignment) inside an 'if' statement. Use '==' for comparison."
             
+            # Check for mismatched parentheses
+            elif line_content.count('(') > line_content.count(')'):
+                 suggestion = "You have an open parenthesis '(' that isn't closed. Add a ')' at the end."
+            elif line_content.count(')') > line_content.count('('):
+                 suggestion = "You have an extra closing parenthesis ')'. Remove it."
+                 
+            # Check for mismatched brackets
+            elif line_content.count('[') > line_content.count(']'):
+                 suggestion = "You have an open bracket '[' that isn't closed. Add a ']'."
+            
+            # Check for print syntax (Python 2 vs 3)
+            elif line_content.startswith("print ") and "(" not in line_content:
+                 suggestion = "Missing parentheses in call to 'print'. Did you mean print(...)?'"
+
+        # Fallback to message analysis if heuristics didn't trigger
+        if suggestion == "Check your code for typos or logic errors.":
+            if "unexpected EOF" in msg:
+                explanation = "Python reached the end of the file unexpectedly."
+                suggestion = "You are likely missing a closing parenthesis ')', bracket ']', or brace '}'."
+            elif "EOL while scanning string literal" in msg:
+                explanation = "A string (text in quotes) was not closed properly before the end of the line."
+                suggestion = """Check for a missing closing quote (single ' or double ") on this line."""
+            elif "invalid syntax" in msg:
+                 suggestion = "Check for missing colons, mismatched parentheses, or incorrect keywords."
+            elif "unmatched" in msg:
+                 symbol = msg.split("'")[1] if "'" in msg else "parenthesis/bracket"
+                 explanation = f"Found a closing {symbol} that doesn't define a group."
+                 suggestion = f"Remove the extra '{symbol}' or find where the opening one is missing."
+            elif "expected" in msg and ":" in msg:
+                explanation = "Missing a colon."
+                suggestion = "Add a colon ':' at the end of this line."
+
     elif err_type == "IndentationError":
         explanation = "The indentation (spaces at start of line) is incorrect."
         if "expected an indented block" in msg:
-            suggestion = "The line after a statement ending in ':' must be indented (usually 4 spaces)."
+             prev_line = lines[line_num - 2].strip() if line_num > 1 else ""
+             suggestion = f"The line after '{prev_line}' matches a block opener (ends in ':'). You must indent the current line (usually 4 spaces)."
         elif "unexpected indent" in msg:
             suggestion = "This line is indented but shouldn't be. Remove the leading spaces."
         elif "unindent does not match" in msg:
@@ -189,7 +219,7 @@ def get_error_details(e):
     elif err_type == "NameError":
         var_name = str(e).split("'")[1] if "'" in str(e) else "variable"
         explanation = f"The name '{var_name}' is not defined."
-        suggestion = f"Define '{var_name}' before using it, or check for a spelling mistake."
+        suggestion = f"Define '{var_name}' before using it. If it's a variable, set it equal to something (e.g. {var_name} = 0). If it's a quote, make sure strict strings are in quotes."
         
     elif err_type == "TypeError":
         explanation = "Operation applied to an incompatible type."
@@ -243,7 +273,7 @@ try:
         error_type = type(e).__name__
         line_num = e.lineno or 0
         
-        details = get_error_details(e)
+        details = get_error_details(e, cleaned, line_num)
         
         result_obj = {
             "success": False,
@@ -302,7 +332,7 @@ try:
                 if frame.filename == "<string>":
                     line_num = frame.lineno
             
-            details = get_error_details(e)
+            details = get_error_details(e, cleaned, line_num)
 
             result_obj = {
                 "success": False,
