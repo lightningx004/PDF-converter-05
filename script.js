@@ -155,7 +155,7 @@ def get_error_details(e, code=None, line_num=None):
     # Get the specific line of code if possible
     line_content = ""
     if code and line_num and line_num > 0:
-        lines = code.split('\n')
+        lines = code.split('\\n')
         if line_num <= len(lines):
             line_content = lines[line_num - 1].strip()
 
