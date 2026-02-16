@@ -142,43 +142,94 @@ import sys
 import traceback
 from fpdf import FPDF
 
-# Error explanations dictionary
-error_explanations = {
-    "SyntaxError": {
-        "explanation": "The code has a structure that Python doesn't understand.",
-        "suggestion": "Check for missing parentheses (), brackets [], braces {}, or colons :. Also check for mismatched quotes."
-    },
-    "IndentationError": {
-        "explanation": "Python relies on consistent indentation (spaces) to define blocks of code.",
-        "suggestion": "Ensure all lines in a block (like inside a function or loop) start with the same number of spaces."
-    },
-    "NameError": {
-        "explanation": "You are trying to use a variable or function that hasn't been defined yet.",
-        "suggestion": "Check for typos in variable names. Make sure you define variables before using them."
-    },
-    "TypeError": {
-        "explanation": "You are applying an operation to an object of an incorrect type.",
-        "suggestion": "Check if you are mixing types incompatible (e.g., adding a string to a number)."
-    },
-     "AttributeError": {
-        "explanation": "You are trying to access an attribute or method that doesn't exist for this object.",
-        "suggestion": "Check the documentation for the object you are using. You might have a typo in the method name."
-    }
-}
+# Enhanced Error Analysis
+def get_error_details(e):
+    err_type = type(e).__name__
+    msg = str(e)
+    
+    explanation = "An error occurred during execution."
+    suggestion = "Check your code for typos or logic errors."
+    
+    if err_type == "SyntaxError":
+        explanation = "The code structure is invalid."
+        # Specific SyntaxError checks
+        if "unexpected EOF" in msg:
+            explanation = "Python reached the end of the file unexpectedly."
+            suggestion = "You are likely missing a closing parenthesis ')', bracket ']', or brace '}'."
+        elif "EOL while scanning string literal" in msg:
+            explanation = "A string (text in quotes) was not closed properly before the end of the line."
+            suggestion = "Check for a missing closing quote (single ' or double \") on this line."
+        elif "invalid syntax" in msg:
+            if ":" in msg: # Sometimes colon errors show up here
+                 suggestion = "Check if you are missing a colon ':' at the end of a statement (like if, for, def)."
+            elif "=" in msg:
+                 suggestion = "Check if you're using '=' (assignment) instead of '==' (comparison) in an if-statement."
+            else:
+                 suggestion = "Check for missing colons, mismatched parentheses, or incorrect keywords."
+        elif "unmatched" in msg:
+             symbol = msg.split("'")[1] if "'" in msg else "parenthesis/bracket"
+             explanation = f"Found a closing {symbol} that doesn't define a group."
+             suggestion = f"Remove the extra '{symbol}' or find where the opening one is missing."
+        elif "closing parenthesis" in msg and "does not match" in msg:
+             explanation = "Mismatched parentheses."
+             suggestion = "Check that every '(' has a matching ')'."
+        elif "expected" in msg and ":" in msg:
+            explanation = "Missing a colon."
+            suggestion = "Add a colon ':' at the end of this line."
+            
+    elif err_type == "IndentationError":
+        explanation = "The indentation (spaces at start of line) is incorrect."
+        if "expected an indented block" in msg:
+            suggestion = "The line after a statement ending in ':' must be indented (usually 4 spaces)."
+        elif "unexpected indent" in msg:
+            suggestion = "This line is indented but shouldn't be. Remove the leading spaces."
+        elif "unindent does not match" in msg:
+            suggestion = "This line's indentation level doesn't match the previous block. Align it with the block it belongs to."
+            
+    elif err_type == "NameError":
+        var_name = str(e).split("'")[1] if "'" in str(e) else "variable"
+        explanation = f"The name '{var_name}' is not defined."
+        suggestion = f"Define '{var_name}' before using it, or check for a spelling mistake."
+        
+    elif err_type == "TypeError":
+        explanation = "Operation applied to an incompatible type."
+        if "unsupported operand type" in msg:
+            suggestion = "You are trying to combine incompatible types (e.g., adding text to a number). Convert them first (e.g., str(number))."
+        elif "not subscriptable" in msg:
+            suggestion = "You are trying to access an index [i] on something that isn't a list or dictionary."
+        elif "takes" in msg and "argument" in msg:
+             suggestion = "The function is being called with the wrong number of arguments. Check the function definition."
+             
+    elif err_type == "AttributeError":
+        obj_type = "object"
+        attr_name = "attribute"
+        if "'" in msg:
+            parts = msg.split("'")
+            if len(parts) >= 4:
+                obj_type = parts[1]
+                attr_name = parts[3]
+        explanation = f"The object '{obj_type}' does not have an attribute '{attr_name}'."
+        suggestion = f"Check the spelling of '.{attr_name}'. Use 'dir({obj_type})' to see available methods."
+            
+    elif err_type == "ModuleNotFoundError":
+        mod_name = str(e).split("'")[1] if "'" in str(e) else "module"
+        explanation = f"The library '{mod_name}' is missing."
+        suggestion = "This environment only supports standard libraries + fpdf2, reportlab, micropip. You cannot import external packages."
+        
+    elif err_type == "IndexError":
+        explanation = "List index out of range."
+        suggestion = "You are trying to access an item at a position that doesn't exist in the list."
+        
+    elif err_type == "KeyError":
+        key = str(e)
+        explanation = f"The key {key} is not in the dictionary."
+        suggestion = f"Check if the key {key} exists in the dictionary before accessing it."
+
+    return {"explanation": explanation, "suggestion": suggestion}
 
 result_obj = {"success": True, "error": None}
 
 def clean_code_internal(code, font_size=None):
-    # (Same cleaning logic as before, minimized for brevity in this block if needed, 
-    # but we can reuse the global clean_code if it was defined in init, 
-    # OR redefine it here to be safe and self-contained for this execution block)
-    import re
-    # ... pattern replacements ...
-    # For now, let's assume 'clean_code' is available from the global scope/previous run
-    # If not, we should strictly include it here. 
-    # To be safe, let's reuse the one defined in initPyodide if possible, 
-    # but since this is a new runPythonAsync, locals might be fresh? 
-    # Pyodide persists globals. 'clean_code' was defined in initPyodide.
     return clean_code(code, font_size)
 
 try:
@@ -189,19 +240,10 @@ try:
     try:
         compile(cleaned, '<string>', 'exec')
     except (SyntaxError, IndentationError) as e:
-        # Capture Syntax Errors specifically
         error_type = type(e).__name__
         line_num = e.lineno or 0
         
-        # Heuristic to adjust line number if it's offset by imports or patches?
-        # The cleaned code might match user input line-wise fairly well if we just stripped fences.
-        # But if we added imports in the exec block, we need to be careful. 
-        # Here we compiled 'cleaned' code directly, so line numbers should match 'cleaned' text.
-        
-        details = error_explanations.get(error_type, {
-            "explanation": "An error occurred while parsing the code.",
-            "suggestion": "Review the syntax on the indicated line."
-        })
+        details = get_error_details(e)
         
         result_obj = {
             "success": False,
@@ -260,10 +302,7 @@ try:
                 if frame.filename == "<string>":
                     line_num = frame.lineno
             
-            details = error_explanations.get(error_type, {
-                "explanation": "An error occurred while running the code.",
-                "suggestion": "Check the error message for details."
-            })
+            details = get_error_details(e)
 
             result_obj = {
                 "success": False,
