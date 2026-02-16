@@ -127,6 +127,33 @@ pdf.output('output.pdf')"></textarea>
     <!-- Toast Container -->
     <div id="toast-container"></div>
 
+    <!-- Error Modal -->
+    <div id="error-modal-overlay" class="error-modal-overlay hidden">
+        <div class="error-modal">
+            <div class="modal-header">
+                <h3 id="error-title">Syntax Error</h3>
+                <button id="close-modal-btn" class="close-btn"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="error-details">
+                    <span class="error-badge" id="error-type">SyntaxError</span>
+                    <span class="line-badge" id="error-line">Line 5</span>
+                </div>
+                <p class="error-message" id="error-message">Unexpected token: ')'</p>
+                
+                <div class="error-section">
+                    <h4><i class="fa-solid fa-circle-question"></i> Why this happened:</h4>
+                    <p id="error-explanation">Python found a closing parenthesis that doesn't match an opening one.</p>
+                </div>
+                
+                <div class="error-section suggestion-section">
+                    <h4><i class="fa-solid fa-lightbulb"></i> How to fix it:</h4>
+                    <p id="error-suggestion">Check for unmatched parentheses or an extra ')' on this line.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="script.js"></script>
 </body>
 

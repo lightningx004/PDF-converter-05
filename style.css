@@ -540,3 +540,142 @@ textarea::placeholder {
     border: 3px solid rgba(0, 0, 0, 0);
     background-clip: content-box;
 }
+
+/* Error Modal */
+.error-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+
+.error-modal-overlay:not(.hidden) {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.error-modal {
+    background: rgba(20, 20, 40, 0.85);
+    border: 1px solid rgba(255, 100, 100, 0.3);
+    box-shadow: 0 0 30px rgba(255, 50, 50, 0.2), inset 0 0 10px rgba(255, 50, 50, 0.1);
+    backdrop-filter: blur(15px);
+    border-radius: 16px;
+    width: 90%;
+    max-width: 500px;
+    padding: 2rem;
+    color: #fff;
+    transform: scale(0.9);
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    position: relative;
+    overflow: hidden;
+}
+
+.error-modal-overlay:not(.hidden) .error-modal {
+    transform: scale(1);
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.5rem;
+}
+
+.modal-header h3 {
+    margin: 0;
+    background: linear-gradient(135deg, #ff6b6b, #ff4757);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.close-btn:hover {
+    color: #fff;
+}
+
+.error-details {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 1rem;
+    align-items: center;
+}
+
+.error-badge {
+    background: rgba(255, 71, 87, 0.2);
+    color: #ff6b6b;
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    border: 1px solid rgba(255, 71, 87, 0.3);
+}
+
+.line-badge {
+    background: rgba(255, 255, 255, 0.1);
+    color: #ccc;
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.error-message {
+    font-size: 1.1rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+    background: rgba(0, 0, 0, 0.3);
+    padding: 1rem;
+    border-radius: 8px;
+    border-left: 3px solid #ff4757;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.error-section {
+    margin-top: 1rem;
+}
+
+.error-section h4 {
+    margin: 0 0 0.5rem 0;
+    font-size: 1rem;
+    color: #a4b0be;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.error-section h4 i {
+    color: #ffa502;
+}
+
+.error-section p {
+    margin: 0;
+    color: #ced6e0;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+.suggestion-section h4 i {
+    color: #2ed573;
+}
