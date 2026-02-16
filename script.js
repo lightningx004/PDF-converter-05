@@ -158,7 +158,7 @@ def get_error_details(e):
             suggestion = "You are likely missing a closing parenthesis ')', bracket ']', or brace '}'."
         elif "EOL while scanning string literal" in msg:
             explanation = "A string (text in quotes) was not closed properly before the end of the line."
-            suggestion = "Check for a missing closing quote (single ' or double \") on this line."
+            suggestion = "Check for a missing closing quote (single ' or double \\\") on this line."
         elif "invalid syntax" in msg:
             if ":" in msg: # Sometimes colon errors show up here
                  suggestion = "Check if you are missing a colon ':' at the end of a statement (like if, for, def)."
