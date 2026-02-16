@@ -9,13 +9,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const statChars = document.getElementById('stat-chars');
     const statWords = document.getElementById('stat-words');
 
-    // Modal Elements
-    const errorModal = document.getElementById('error-modal');
-    const errorMessagePre = document.getElementById('error-message');
-    const errorSuggestion = document.getElementById('error-suggestion');
-    const closeModalBtn = document.getElementById('close-modal-btn');
-    const dismissBtn = document.getElementById('dismiss-btn');
-
     let pyodide = null;
     let pyodideReady = false;
 
@@ -39,7 +32,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             showToast('Installing fpdf2 library...', 'info');
             await micropip.install("fpdf2");
             await micropip.install("reportlab");
-            await micropip.install("requests");
 
             showToast('Configuring environment...', 'info');
             // Define clean_code function in Python environment
@@ -230,14 +222,51 @@ FPDF.normalize_text = patched_normalize_text
 
 cleaned = clean_code(user_code, font_size)
 
-# Attempt to execute valid Python code
-exec(cleaned, globals())
+try:
+    # Attempt to execute valid Python code
+    try:
+        exec(cleaned, globals())
+    except SyntaxError:
+        # HEURISTIC: Fix missing triple quote (User typo: "text"", -> "text""",)
+        import re
+        # Look for: non-quote char + "" + (comma or paren or newline)
+        fixed = re.sub(r'([^"])""(\s*[),])', r'\\1"""\\2', cleaned)
+        if fixed == cleaned:
+            raise # No fix possible, re-raise original error
+        
+        print("Warning: Detected potential missing quote. Attempting auto-fix...")
+        exec(fixed, globals())
 
-# Check if a PDF was actually generated
-import glob
-pdfs = glob.glob("*.pdf")
-if not pdfs:
-    raise Exception("No PDF generated. Ensure your code saves a PDF (e.g. pdf.output('name.pdf'))")
+    # Check if a PDF was actually generated
+    import glob
+    pdfs = glob.glob("*.pdf")
+    if not pdfs:
+        raise Exception("No PDF generated")
+
+except Exception as e:
+    print(f"Execution failed ({e}), falling back to text conversion...")
+    
+    # Fallback: Create PDF from text content
+    pdf = FPDF()
+    pdf.add_page()
+    
+    # Use Courier for code look
+    try:
+        pdf.set_font("Courier", size=int(font_size))
+    except:
+        pdf.set_font("Courier", size=12)
+        
+    # Write error message first so user knows WHY it failed
+    pdf.set_text_color(255, 0, 0)
+    pdf.multi_cell(0, 5, txt=f"ERROR: {str(e)}")
+    pdf.ln(5)
+    pdf.set_text_color(0, 0, 0)
+
+    # Multi_cell handles newlines automatically
+    # Effective page width = 210 - 2*10 (margins) = 190
+    pdf.multi_cell(0, 5, txt=user_code)
+    
+    pdf.output("output.pdf")
             `);
 
             // Check for PDF
@@ -249,7 +278,6 @@ glob.glob("*.pdf")
             const filesList = pdfFiles.toJs();
 
             if (filesList.length === 0) {
-                // This usually catches the case where no error was raised but no file was made
                 throw new Error("No PDF file generated. Ensure your code saves a PDF (e.g. pdf.output('name.pdf'))");
             }
 
@@ -272,51 +300,15 @@ glob.glob("*.pdf")
 
         } catch (error) {
             console.error('Error:', error);
-            showErrorModal(error);
+            // Pyodide errors can be verbose, try to get the message
+            let msg = error.message;
+            if (msg.includes("PythonClientError")) {
+                msg = "Python Execution Failed";
+            }
+            showToast(msg, 'error');
         } finally {
             stopLoading();
         }
-    });
-
-    // Modal Functions
-    function showErrorModal(error) {
-        let msg = error.message || String(error);
-
-        // Clean up Pyodide error message prefix if present
-        if (msg.includes("PythonClientError") || msg.includes("PythonError")) {
-            // Keep the traceback which is usually helpful
-            msg = msg.replace(/^PythonError: /, '');
-        }
-
-        errorMessagePre.textContent = msg;
-
-        // Simple heuristics for suggestions
-        if (msg.includes("SyntaxError")) {
-            errorSuggestion.textContent = "Check for missing parentheses, matching quotes, or correct colons at the end of statements.";
-        } else if (msg.includes("IndentationError")) {
-            errorSuggestion.textContent = "Check your code indentation. Python relies on consistent spacing (tabs vs spaces).";
-        } else if (msg.includes("NameError")) {
-            errorSuggestion.textContent = "You are trying to use a variable or function that hasn't been defined or imported yet.";
-        } else if (msg.includes("ImportError") || msg.includes("ModuleNotFoundError")) {
-            errorSuggestion.textContent = "The library you are trying to import might not be available in this environment.";
-        } else if (msg.includes("No PDF generated")) {
-            errorSuggestion.textContent = "Your code ran without errors but didn't save a PDF. Make sure you call `pdf.output('filename.pdf')` at the end.";
-        } else {
-            errorSuggestion.textContent = "Review the error details above to identify the issue.";
-        }
-
-        errorModal.classList.remove('hidden');
-    }
-
-    function closeErrorModal() {
-        errorModal.classList.add('hidden');
-    }
-
-    // Modal Event Listeners
-    closeModalBtn.addEventListener('click', closeErrorModal);
-    dismissBtn.addEventListener('click', closeErrorModal);
-    errorModal.addEventListener('click', (e) => {
-        if (e.target === errorModal) closeErrorModal();
     });
 
     // Helper Functions
