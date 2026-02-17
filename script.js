@@ -284,7 +284,8 @@ def propose_fix(e, code, line_num):
         # Missing Colon
         # Check ends with: if, else, elif, for, while, def, class, try, except, finally
         # Regex is safer to handle spaces/comments
-        is_keyword = re.search(r'^(if|elif|else|for|while|def|class|try|except|finally)\b', content_no_comment)
+        # Removed \b to handle if(x)
+        is_keyword = re.search(r'^(if|elif|else|for|while|def|class|try|except|finally)', content_no_comment)
         has_colon = content_no_comment.endswith(':')
         print(f"DEBUG: Keyword match: {is_keyword}, Has colon: {has_colon}")
         
@@ -293,11 +294,18 @@ def propose_fix(e, code, line_num):
              fixed_line = original_line.rstrip() + ":"
              
         # Assignment in if (e.g. if x = 1)
-        # Check for 'if' followed by content with '=' but not '==' or '!='
         elif re.search(r'^if\s+.*[^=!<>]=', content_no_comment):
              print("DEBUG: Applying Assignment Fix")
              fixed_line = original_line.replace("=", "==")
-             
+        
+        # Incomplete List/Tuple definition (e.g. modules = ,)
+        # Check for assignment with comma but no brackets/parens
+        elif "=" in content_no_comment and "," in content_no_comment and "[" not in content_no_comment and "(" not in content_no_comment:
+             print("DEBUG: Applying List Fix (wrapping in [])")
+             parts = original_line.split("=", 1)
+             if len(parts) == 2:
+                 fixed_line = f"{parts[0]}= [{parts[1].strip()}]"
+
         # Unbalanced Parentheses
         open_p = fixed_line.count('(')
         close_p = fixed_line.count(')')
@@ -313,11 +321,12 @@ def propose_fix(e, code, line_num):
             fixed_line += "]" * (open_b - close_b)
             
         # Unterminated String
-        if "EOL while scanning string literal" in msg or "unterminated string literal" in msg:
+        # Count quotes to see if odd
+        if "EOL while scanning string literal" in msg or "unterminated string literal" in msg or fixed_line.count('"') % 2 != 0 or fixed_line.count("'") % 2 != 0:
              print("DEBUG: Applying String Fix")
-             if "'" in fixed_line and '"' not in fixed_line:
+             if fixed_line.count("'") % 2 != 0:
                  fixed_line += "'"
-             elif '"' in fixed_line and "'" not in fixed_line:
+             elif fixed_line.count('"') % 2 != 0:
                  fixed_line += '"'
                  
         # Missing parens for print (Python 3)
