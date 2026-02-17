@@ -478,7 +478,11 @@ glob.glob("*.pdf")
     // Error Modal Logic
     const errorModalOverlay = document.getElementById('error-modal-overlay');
     const closeModalBtn = document.getElementById('close-modal-btn');
+    const closeModalBtnSecondary = document.getElementById('close-modal-btn-secondary');
     const autoFixBtn = document.getElementById('auto-fix-btn');
+    console.log('Debug: autoFixBtn:', autoFixBtn);
+    console.log('Debug: closeModalBtn:', closeModalBtn);
+    console.log('Debug: errorModalOverlay:', errorModalOverlay);
     let currentFixedCode = null;
 
     function showErrorModal(error) {
@@ -488,9 +492,9 @@ glob.glob("*.pdf")
         document.getElementById('error-message').innerText = error.message || 'Unknown error';
         document.getElementById('error-explanation').innerText = error.explanation || 'No explanation available.';
         document.getElementById('error-suggestion').innerText = error.suggestion || 'Check your code and try again.';
-        
+
         currentFixedCode = error.fixed_code || null;
-        
+
         if (currentFixedCode) {
             autoFixBtn.classList.remove('hidden');
         } else {
@@ -503,13 +507,19 @@ glob.glob("*.pdf")
     closeModalBtn.addEventListener('click', () => {
         errorModalOverlay.classList.add('hidden');
     });
-    
+
+    if (closeModalBtnSecondary) {
+        closeModalBtnSecondary.addEventListener('click', () => {
+            errorModalOverlay.classList.add('hidden');
+        });
+    }
+
     autoFixBtn.addEventListener('click', () => {
         if (currentFixedCode) {
             codeInput.value = currentFixedCode;
             updateStats();
             updateLineNumbers();
-            
+
             errorModalOverlay.classList.add('hidden');
             showToast('Code Fixed Automatically!', 'success');
         }
