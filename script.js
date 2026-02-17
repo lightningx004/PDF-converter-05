@@ -298,6 +298,11 @@ def propose_fix(e, code, line_num):
              print("DEBUG: Applying Assignment Fix")
              fixed_line = original_line.replace("=", "==")
         
+        # Incomplete Assignment (e.g. story =)
+        elif re.search(r'^\s*[a-zA-Z_]\w*\s*=\s*$', content_no_comment):
+             print("DEBUG: Applying Empty Assignment Fix")
+             fixed_line = original_line.rstrip() + " None"
+
         # Incomplete List/Tuple definition (e.g. modules = ,)
         # Check for assignment with comma but no brackets/parens
         elif "=" in content_no_comment and "," in content_no_comment and "[" not in content_no_comment and "(" not in content_no_comment:
