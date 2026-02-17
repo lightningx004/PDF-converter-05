@@ -50,14 +50,26 @@
                     </div>
                     <div class="editor-body">
                         <div class="line-numbers" id="line-numbers">1</div>
-                        <textarea id="code-input" spellcheck="false" placeholder="# Paste your Python code here...
+                        <textarea id="code-input" spellcheck="false" placeholder="# Paste your Python code here...">
+# Python to PDF Converter
 from fpdf import FPDF
 
-pdf = FPDF()
+# Create instance of FPDF class
+# Letter size: 215.9x279.4 mm
+pdf = FPDF(format='letter')
+
+# Add a page
 pdf.add_page()
-pdf.set_font('Arial', size=15)
-pdf.cell(200, 10, txt='Hello World!', ln=1, align='C')
-pdf.output('output.pdf')"></textarea>
+
+# Set font: Times, normal, 12 pt
+pdf.set_font("Times", size=12)
+
+# Add a cell
+pdf.cell(200, 10, txt="Hello World!", ln=1, align="C")
+
+# Output the PDF
+# pdf.output("simple_demo.pdf")
+</textarea>
                     </div>
                 </div>
             </section>
@@ -140,12 +152,12 @@ pdf.output('output.pdf')"></textarea>
                     <span class="line-badge" id="error-line">Line 5</span>
                 </div>
                 <p class="error-message" id="error-message">Unexpected token: ')'</p>
-                
+
                 <div class="error-section">
                     <h4><i class="fa-solid fa-circle-question"></i> Why this happened:</h4>
                     <p id="error-explanation">Python found a closing parenthesis that doesn't match an opening one.</p>
                 </div>
-                
+
                 <div class="error-section suggestion-section">
                     <h4><i class="fa-solid fa-lightbulb"></i> How to fix it:</h4>
                     <p id="error-suggestion">Check for unmatched parentheses or an extra ')' on this line.</p>

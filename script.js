@@ -73,6 +73,8 @@ def clean_code(code, font_size=None):
     }
 
     initPyodide();
+    updateStats();
+    updateLineNumbers();
 
     // Editor Interactions
     codeInput.addEventListener('input', () => {
@@ -257,6 +259,65 @@ def get_error_details(e, code=None, line_num=None):
 
     return {"explanation": explanation, "suggestion": suggestion}
 
+def propose_fix(e, code, line_num):
+    if not code or not line_num or line_num <= 0:
+        return None
+        
+    lines = code.split('\\n')
+    if line_num > len(lines):
+        return None
+        
+    line_index = line_num - 1
+    original_line = lines[line_index]
+    fixed_line = original_line
+    
+    err_type = type(e).__name__
+    msg = str(e)
+    
+    if err_type == "SyntaxError":
+        # Missing Colon
+        if original_line.strip().endswith(('if', 'else', 'elif', 'for', 'while', 'def', 'class', 'try', 'except', 'finally')):
+             fixed_line = original_line + ":"
+        elif any(original_line.strip().startswith(k) for k in ['if ', 'elif ', 'else:', 'for ', 'while ', 'def ', 'class ', 'try:', 'except ', 'finally:']) and not original_line.strip().endswith(':'):
+             fixed_line = original_line + ":"
+             
+        # Assignment in if
+        elif "if " in original_line and "=" in original_line and "==" not in original_line and "!=" not in original_line:
+             fixed_line = original_line.replace("=", "==")
+             
+        # Unbalanced Parentheses (Simple heuristic: append missing closure)
+        open_p = fixed_line.count('(')
+        close_p = fixed_line.count(')')
+        if open_p > close_p:
+            fixed_line += ")" * (open_p - close_p)
+            
+        # Unbalanced Brackets
+        open_b = fixed_line.count('[')
+        close_b = fixed_line.count(']')
+        if open_b > close_b:
+            fixed_line += "]" * (open_b - close_b)
+            
+        # Unterminated String (EOL string literal)
+        if "EOL while scanning string literal" in msg:
+             # Try to close with the quote used
+             if "'" in fixed_line and '"' not in fixed_line:
+                 fixed_line += "'"
+             elif '"' in fixed_line and "'" not in fixed_line:
+                 fixed_line += '"'
+                 
+        # Missing parens for print (Python 3)
+        if original_line.strip().startswith("print ") and "(" not in original_line:
+            content = original_line.strip()[6:] # remove 'print '
+            indent = original_line[:len(original_line) - len(original_line.lstrip())]
+            fixed_line = f"{indent}print({content})"
+
+    if fixed_line != original_line:
+        # Reconstruct code
+        lines[line_index] = fixed_line
+        return "\\n".join(lines)
+        
+    return None
+
 result_obj = {"success": True, "error": None}
 
 def clean_code_internal(code, font_size=None):
@@ -274,6 +335,7 @@ try:
         line_num = e.lineno or 0
         
         details = get_error_details(e, cleaned, line_num)
+        fixed_code = propose_fix(e, cleaned, line_num)
         
         result_obj = {
             "success": False,
@@ -282,7 +344,8 @@ try:
                 "line": line_num,
                 "message": str(e),
                 "explanation": details["explanation"],
-                "suggestion": details["suggestion"]
+                "suggestion": details["suggestion"],
+                "fixed_code": fixed_code
             }
         }
         
@@ -412,8 +475,11 @@ glob.glob("*.pdf")
     });
 
     // Error Modal Logic
+    // Error Modal Logic
     const errorModalOverlay = document.getElementById('error-modal-overlay');
     const closeModalBtn = document.getElementById('close-modal-btn');
+    const autoFixBtn = document.getElementById('auto-fix-btn');
+    let currentFixedCode = null;
 
     function showErrorModal(error) {
         document.getElementById('error-title').innerText = error.type || 'Error';
@@ -422,12 +488,31 @@ glob.glob("*.pdf")
         document.getElementById('error-message').innerText = error.message || 'Unknown error';
         document.getElementById('error-explanation').innerText = error.explanation || 'No explanation available.';
         document.getElementById('error-suggestion').innerText = error.suggestion || 'Check your code and try again.';
+        
+        currentFixedCode = error.fixed_code || null;
+        
+        if (currentFixedCode) {
+            autoFixBtn.classList.remove('hidden');
+        } else {
+            autoFixBtn.classList.add('hidden');
+        }
 
         errorModalOverlay.classList.remove('hidden');
     }
 
     closeModalBtn.addEventListener('click', () => {
         errorModalOverlay.classList.add('hidden');
+    });
+    
+    autoFixBtn.addEventListener('click', () => {
+        if (currentFixedCode) {
+            codeInput.value = currentFixedCode;
+            updateStats();
+            updateLineNumbers();
+            
+            errorModalOverlay.classList.add('hidden');
+            showToast('Code Fixed Automatically!', 'success');
+        }
     });
 
     // Close on outside click
