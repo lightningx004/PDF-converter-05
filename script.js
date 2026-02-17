@@ -260,11 +260,12 @@ def get_error_details(e, code=None, line_num=None):
     return {"explanation": explanation, "suggestion": suggestion}
 
 def propose_fix(e, code, line_num):
-    if not code or not line_num or line_num <= 0:
+    if not code:
         return None
-        
+    
     lines = code.split('\\n')
-    if line_num > len(lines):
+    # Bounds check
+    if not line_num or line_num < 1 or line_num > len(lines):
         return None
         
     line_index = line_num - 1
@@ -274,18 +275,23 @@ def propose_fix(e, code, line_num):
     err_type = type(e).__name__
     msg = str(e)
     
+    # Strip comments for analysis
+    content_no_comment = original_line.split('#')[0].strip()
+
     if err_type == "SyntaxError":
         # Missing Colon
-        if original_line.strip().endswith(('if', 'else', 'elif', 'for', 'while', 'def', 'class', 'try', 'except', 'finally')):
-             fixed_line = original_line + ":"
-        elif any(original_line.strip().startswith(k) for k in ['if ', 'elif ', 'else:', 'for ', 'while ', 'def ', 'class ', 'try:', 'except ', 'finally:']) and not original_line.strip().endswith(':'):
-             fixed_line = original_line + ":"
+        # Check ends with: if, else, elif, for, while, def, class, try, except, finally
+        # Regex is safer to handle spaces/comments
+        import re
+        if re.search(r'^(if|elif|else|for|while|def|class|try|except|finally)\b', content_no_comment) and not content_no_comment.endswith(':'):
+             fixed_line = original_line.rstrip() + ":"
              
-        # Assignment in if
-        elif "if " in original_line and "=" in original_line and "==" not in original_line and "!=" not in original_line:
+        # Assignment in if (e.g. if x = 1)
+        # Check for 'if' followed by content with '=' but not '==' or '!='
+        elif re.search(r'^if\s+.*[^=!<>]=', content_no_comment):
              fixed_line = original_line.replace("=", "==")
              
-        # Unbalanced Parentheses (Simple heuristic: append missing closure)
+        # Unbalanced Parentheses
         open_p = fixed_line.count('(')
         close_p = fixed_line.count(')')
         if open_p > close_p:
@@ -297,22 +303,24 @@ def propose_fix(e, code, line_num):
         if open_b > close_b:
             fixed_line += "]" * (open_b - close_b)
             
-        # Unterminated String (EOL string literal)
-        if "EOL while scanning string literal" in msg:
-             # Try to close with the quote used
+        # Unterminated String
+        if "EOL while scanning string literal" in msg or "unterminated string literal" in msg:
              if "'" in fixed_line and '"' not in fixed_line:
                  fixed_line += "'"
              elif '"' in fixed_line and "'" not in fixed_line:
                  fixed_line += '"'
                  
         # Missing parens for print (Python 3)
-        if original_line.strip().startswith("print ") and "(" not in original_line:
-            content = original_line.strip()[6:] # remove 'print '
-            indent = original_line[:len(original_line) - len(original_line.lstrip())]
-            fixed_line = f"{indent}print({content})"
+        if re.match(r'^print\s+.*', content_no_comment) and not content_no_comment.startswith("print("):
+            # Extract content after print
+            match = re.match(r'^print\s+(.*)', content_no_comment)
+            if match:
+                content = match.group(1)
+                # preserve indentation of original line
+                indent = original_line[:len(original_line) - len(original_line.lstrip())]
+                fixed_line = f"{indent}print({content})"
 
     if fixed_line != original_line:
-        # Reconstruct code
         lines[line_index] = fixed_line
         return "\\n".join(lines)
         
