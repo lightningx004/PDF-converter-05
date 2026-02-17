@@ -277,34 +277,44 @@ def propose_fix(e, code, line_num):
     
     # Strip comments for analysis
     content_no_comment = original_line.split('#')[0].strip()
+    print(f"DEBUG: Line content clean: '{content_no_comment}'")
 
     if err_type == "SyntaxError":
+        import re
         # Missing Colon
         # Check ends with: if, else, elif, for, while, def, class, try, except, finally
         # Regex is safer to handle spaces/comments
-        import re
-        if re.search(r'^(if|elif|else|for|while|def|class|try|except|finally)\b', content_no_comment) and not content_no_comment.endswith(':'):
+        is_keyword = re.search(r'^(if|elif|else|for|while|def|class|try|except|finally)\b', content_no_comment)
+        has_colon = content_no_comment.endswith(':')
+        print(f"DEBUG: Keyword match: {is_keyword}, Has colon: {has_colon}")
+        
+        if is_keyword and not has_colon:
+             print("DEBUG: Applying Colon Fix")
              fixed_line = original_line.rstrip() + ":"
              
         # Assignment in if (e.g. if x = 1)
         # Check for 'if' followed by content with '=' but not '==' or '!='
         elif re.search(r'^if\s+.*[^=!<>]=', content_no_comment):
+             print("DEBUG: Applying Assignment Fix")
              fixed_line = original_line.replace("=", "==")
              
         # Unbalanced Parentheses
         open_p = fixed_line.count('(')
         close_p = fixed_line.count(')')
         if open_p > close_p:
+            print("DEBUG: Applying Parentheses Fix")
             fixed_line += ")" * (open_p - close_p)
             
         # Unbalanced Brackets
         open_b = fixed_line.count('[')
         close_b = fixed_line.count(']')
         if open_b > close_b:
+            print("DEBUG: Applying Bracket Fix")
             fixed_line += "]" * (open_b - close_b)
             
         # Unterminated String
         if "EOL while scanning string literal" in msg or "unterminated string literal" in msg:
+             print("DEBUG: Applying String Fix")
              if "'" in fixed_line and '"' not in fixed_line:
                  fixed_line += "'"
              elif '"' in fixed_line and "'" not in fixed_line:
@@ -312,6 +322,7 @@ def propose_fix(e, code, line_num):
                  
         # Missing parens for print (Python 3)
         if re.match(r'^print\s+.*', content_no_comment) and not content_no_comment.startswith("print("):
+            print("DEBUG: Applying Print Fix")
             # Extract content after print
             match = re.match(r'^print\s+(.*)', content_no_comment)
             if match:
@@ -321,9 +332,11 @@ def propose_fix(e, code, line_num):
                 fixed_line = f"{indent}print({content})"
 
     if fixed_line != original_line:
+        print(f"DEBUG: Fix generated: {fixed_line}")
         lines[line_index] = fixed_line
         return "\\n".join(lines)
         
+    print("DEBUG: No fix generated.")
     return None
 
 result_obj = {"success": True, "error": None}
